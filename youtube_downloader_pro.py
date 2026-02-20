@@ -1,91 +1,87 @@
 #!/usr/bin/env python3
 """
-YouTube Downloader Pro - COMPLETE FINAL VERSION
-With auto FFmpeg installation, clear history, theme switcher, smart download button,
-and quality options up to 4K (144p, 240p, 360p, 480p, 720p, 1080p, 1440p/2K, 2160p/4K)
+YouTube Downloader Pro - EXE OPTIMIZED VERSION
+Disables dependency checking when running as EXE
 """
 
 import sys
-import subprocess
-import importlib.util
 import os
 from pathlib import Path
 
-# ========== AUTO-DEPENDENCY INSTALLATION ==========
-
-REQUIRED_PACKAGES = [
-    'customtkinter>=5.2.2',
-    'yt-dlp>=2024.4.9',
-    'pillow>=10.2.0',
-    'pyperclip>=1.8.2',
-    'requests>=2.31.0',
-]
-
-def check_and_install_dependencies():
-    """Check if all dependencies are installed, install if missing"""
+# ========== CRITICAL: DETECT IF RUNNING AS EXE ==========
+if getattr(sys, 'frozen', False):
+    # Running as compiled EXE - skip all dependency checks
+    RUNNING_AS_EXE = True
+    APPLICATION_PATH = os.path.dirname(sys.executable)
     
-    print("🔍 Checking dependencies...")
-    missing_packages = []
+    # Add the application path to system path
+    if APPLICATION_PATH not in sys.path:
+        sys.path.insert(0, APPLICATION_PATH)
     
+    # Suppress pip output
+    import warnings
+    warnings.filterwarnings('ignore')
+    
+    print("🎬 Running as EXE - skipping dependency checks")
+else:
+    # Running as Python script
+    RUNNING_AS_EXE = False
+    APPLICATION_PATH = os.path.dirname(os.path.abspath(__file__))
+    
+    # Only check dependencies when running as script
+    print("🔍 Running as script - checking dependencies...")
+    
+    # Quick dependency check
+    import subprocess
+    import importlib.util
+    
+    REQUIRED_PACKAGES = [
+        'customtkinter',
+        'yt_dlp',
+        'PIL',
+        'pyperclip',
+        'requests',
+    ]
+    
+    missing = []
     for package in REQUIRED_PACKAGES:
-        package_name = package.split('>=')[0] if '>=' in package else package
-        if not is_package_installed(package_name):
-            missing_packages.append(package)
+        if importlib.util.find_spec(package) is None:
+            missing.append(package)
     
-    if missing_packages:
-        print(f"📦 Missing packages: {', '.join(missing_packages)}")
-        print("⚙️ Installing dependencies...")
-        
-        for package in missing_packages:
+    if missing:
+        print(f"📦 Installing missing packages: {', '.join(missing)}")
+        for package in missing:
             try:
-                subprocess.check_call([sys.executable, "-m", "pip", "install", "--quiet", package])
-                print(f"✅ Installed: {package}")
-            except subprocess.CalledProcessError as e:
-                print(f"❌ Failed to install {package}: {e}")
-                print("\n💡 Try installing manually:")
-                print(f"pip install {' '.join(missing_packages)}")
-                sys.exit(1)
-        
-        print("✅ All dependencies installed successfully!")
+                subprocess.check_call(
+                    [sys.executable, "-m", "pip", "install", "--quiet", 
+                     package.replace('_', '-')]
+                )
+                print(f"✅ Installed {package}")
+            except:
+                print(f"⚠️ Failed to install {package}")
+        print("✅ All dependencies installed!")
     else:
         print("✅ All dependencies already installed!")
-    
-    print("")
 
-def is_package_installed(package_name):
-    """Check if a package is installed"""
-    return importlib.util.find_spec(package_name) is not None
-
-# Check dependencies immediately
-check_and_install_dependencies()
-
-# ========== NOW IMPORT ALL PACKAGES ==========
-
+# ========== NOW SAFELY IMPORT ALL PACKAGES ==========
 import customtkinter as ctk
 import tkinter as tk
 from tkinter import filedialog, messagebox
 import yt_dlp
-import os
 import threading
 import json
 import time
-from datetime import datetime, timedelta
-from pathlib import Path
+from datetime import datetime
 import pyperclip
 from PIL import Image
 import requests
 from io import BytesIO
 import subprocess
-import sys
 import shutil
 import re
 import hashlib
 import pickle
-import urllib.request
-import zipfile
-import tempfile
-import ctypes
-import winreg
+import webbrowser
 
 # ========== CONFIGURATION ==========
 
@@ -93,118 +89,12 @@ ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("dark-blue")
 
 APP_NAME = "YouTube Downloader Pro"
-APP_VERSION = "7.0 - FINAL"
-
-# ========== FFMPEG MANAGER ==========
-
-class FFmpegManager:
-    """Handles FFmpeg detection and installation"""
-    
-    @staticmethod
-    def check_ffmpeg():
-        """Check if FFmpeg is available"""
-        try:
-            # Try in PATH
-            result = subprocess.run(['ffmpeg', '-version'], 
-                                   capture_output=True, text=True, timeout=2)
-            if result.returncode == 0:
-                return True, "✅ FFmpeg found in PATH"
-        except:
-            pass
-        
-        # Try in common locations
-        common_paths = [
-            "C:\\ffmpeg\\bin\\ffmpeg.exe",
-            "C:\\ffmpeg\\ffmpeg.exe",
-            os.path.join(os.path.dirname(sys.executable), "ffmpeg.exe"),
-            os.path.join(os.path.dirname(__file__), "ffmpeg.exe"),
-            os.path.join(os.path.dirname(__file__), "ffmpeg", "ffmpeg.exe"),
-        ]
-        
-        for path in common_paths:
-            if os.path.exists(path):
-                # Add to PATH for this session
-                os.environ["PATH"] = os.path.dirname(path) + os.pathsep + os.environ["PATH"]
-                return True, f"✅ FFmpeg found at {path}"
-        
-        return False, "❌ FFmpeg not found"
-    
-    @staticmethod
-    def auto_install(parent_callback=None):
-        """Auto-download and install FFmpeg"""
-        try:
-            if parent_callback:
-                parent_callback("📥 Downloading FFmpeg...")
-            
-            # Download FFmpeg
-            url = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
-            temp_dir = tempfile.gettempdir()
-            zip_path = os.path.join(temp_dir, "ffmpeg.zip")
-            
-            # Download with progress
-            def progress_callback(count, block_size, total_size):
-                if total_size > 0 and parent_callback:
-                    percent = int(count * block_size * 100 / total_size)
-                    parent_callback(f"📥 Downloading FFmpeg... {percent}%")
-            
-            urllib.request.urlretrieve(url, zip_path, progress_callback)
-            
-            if parent_callback:
-                parent_callback("📦 Extracting FFmpeg...")
-            
-            # Extract to temp
-            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                zip_ref.extractall(temp_dir)
-            
-            # Find extracted folder
-            extracted = [f for f in os.listdir(temp_dir) if f.startswith("ffmpeg")][0]
-            src = os.path.join(temp_dir, extracted, "bin")
-            
-            # Install to Program Files or local folder
-            if os.access("C:\\", os.W_OK):
-                install_path = "C:\\ffmpeg"
-            else:
-                install_path = os.path.join(os.path.dirname(__file__), "ffmpeg")
-            
-            os.makedirs(install_path, exist_ok=True)
-            
-            # Copy files
-            for file in os.listdir(src):
-                shutil.copy2(
-                    os.path.join(src, file),
-                    os.path.join(install_path, file)
-                )
-            
-            # Add to PATH
-            try:
-                key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment", 0, winreg.KEY_SET_VALUE)
-                current_path = winreg.QueryValueEx(key, "PATH")[0]
-                if install_path not in current_path:
-                    new_path = current_path + ";" + install_path
-                    winreg.SetValueEx(key, "PATH", 0, winreg.REG_EXPAND_SZ, new_path)
-                    winreg.CloseKey(key)
-                    
-                    # Broadcast change
-                    ctypes.windll.user32.SendMessageW(0xFFFF, 0x1A, 0, 0)
-            except:
-                # Just add to current session
-                os.environ["PATH"] = install_path + os.pathsep + os.environ["PATH"]
-            
-            if parent_callback:
-                parent_callback("✅ FFmpeg installed successfully!")
-            
-            return True, install_path
-            
-        except Exception as e:
-            if parent_callback:
-                parent_callback(f"❌ Installation failed: {str(e)}")
-            return False, str(e)
-
+APP_VERSION = "8.0 - EXE READY"
 
 # ========== MAIN APPLICATION CLASS ==========
 
 class YouTubeDownloaderPro(ctk.CTk):
-    """FINAL VERSION - YouTube Downloader with 4K quality support"""
+    """EXE OPTIMIZED - YouTube Downloader"""
     
     def __init__(self):
         super().__init__()
@@ -213,6 +103,14 @@ class YouTubeDownloaderPro(ctk.CTk):
         self.title(f"🎬 {APP_NAME} v{APP_VERSION}")
         self.geometry("1200x800")
         self.minsize(1000, 700)
+        
+        # Set window icon if available
+        try:
+            icon_path = os.path.join(APPLICATION_PATH, "icons", "icon.ico")
+            if os.path.exists(icon_path):
+                self.iconbitmap(icon_path)
+        except:
+            pass
         
         # Core variables
         self.download_path = str(Path.home() / "Downloads" / "YouTube Downloads")
@@ -241,7 +139,7 @@ class YouTubeDownloaderPro(ctk.CTk):
             'fast': 1024 * 1024,
         }
         
-        # Quality options - UPDATED with 1440p and 4K
+        # Quality options
         self.quality_options = [
             "144p", "240p", "360p", "480p", "720p", 
             "1080p", "1440p (2K)", "2160p (4K)"
@@ -274,6 +172,10 @@ class YouTubeDownloaderPro(ctk.CTk):
         
         # Check FFmpeg after UI loads
         self.after(1000, self.check_ffmpeg)
+        
+        # Make sure window appears on top
+        self.lift()
+        self.focus_force()
     
     def setup_ui(self):
         """Build the complete interface"""
@@ -324,9 +226,20 @@ class YouTubeDownloaderPro(ctk.CTk):
             text_color=self.colors['primary']
         ).pack(side="left")
         
+        # EXE badge
+        if RUNNING_AS_EXE:
+            ctk.CTkLabel(
+                header,
+                text="📦 EXE Mode",
+                font=ctk.CTkFont(size=11),
+                fg_color=self.colors['success'],
+                corner_radius=10,
+                padx=8
+            ).grid(row=0, column=1, padx=10, sticky="e")
+        
         # Theme switcher
         theme_frame = ctk.CTkFrame(header, fg_color="transparent")
-        theme_frame.grid(row=0, column=1, padx=10, sticky="e")
+        theme_frame.grid(row=0, column=2, padx=10, sticky="e")
         
         ctk.CTkLabel(theme_frame, text="🌓", font=ctk.CTkFont(size=14)).pack(side="left", padx=5)
         
@@ -348,7 +261,7 @@ class YouTubeDownloaderPro(ctk.CTk):
             corner_radius=10,
             padx=10
         )
-        self.ffmpeg_badge.grid(row=0, column=2, padx=10, sticky="e")
+        self.ffmpeg_badge.grid(row=0, column=3, padx=10, sticky="e")
         
         # Version
         ctk.CTkLabel(
@@ -356,7 +269,7 @@ class YouTubeDownloaderPro(ctk.CTk):
             text=f"v{APP_VERSION}",
             font=ctk.CTkFont(size=11),
             text_color='gray'
-        ).grid(row=0, column=3, padx=10)
+        ).grid(row=0, column=4, padx=10)
     
     def create_quick_actions(self):
         """Quick action buttons"""
@@ -383,7 +296,7 @@ class YouTubeDownloaderPro(ctk.CTk):
             btn.grid(row=0, column=i, padx=2)
     
     def setup_download_tab(self):
-        """Download tab with 4K quality support"""
+        """Download tab"""
         tab = self.main_tabview.tab("📥 Download")
         tab.grid_columnconfigure(0, weight=1)
         
@@ -428,7 +341,7 @@ class YouTubeDownloaderPro(ctk.CTk):
             btn.pack(side="left", padx=2)
             self.format_buttons[value] = btn
         
-        # Quality - UPDATED with 1440p and 4K
+        # Quality
         ctk.CTkLabel(format_frame, text="Quality:", font=ctk.CTkFont(size=13)).pack(side="left", padx=(20, 5))
         self.quality_var = ctk.StringVar(value="1080p")
         self.quality_menu = ctk.CTkOptionMenu(
@@ -464,7 +377,7 @@ class YouTubeDownloaderPro(ctk.CTk):
         self.audio_menu.pack(side="left", padx=5)
         self.audio_frame.pack_forget()  # Hide initially
         
-        # Download button - initially disabled
+        # Download button
         self.download_btn = ctk.CTkButton(
             tab,
             text="🚀 START DOWNLOAD",
@@ -650,35 +563,9 @@ class YouTubeDownloaderPro(ctk.CTk):
         theme_menu.pack(side="left", padx=10)
         theme_menu.set(self.settings['theme'].title())
         
-        # FFmpeg section
-        ff_frame = ctk.CTkFrame(tab, fg_color=self.colors['surface'])
-        ff_frame.grid(row=2, column=0, sticky="ew", pady=5, padx=5)
-        
-        ctk.CTkLabel(
-            ff_frame,
-            text="🎵 FFmpeg Settings",
-            font=ctk.CTkFont(size=16, weight="bold")
-        ).pack(anchor="w", padx=10, pady=(10, 5))
-        
-        self.ffmpeg_status_label = ctk.CTkLabel(
-            ff_frame,
-            text="Checking FFmpeg...",
-            font=ctk.CTkFont(size=12)
-        )
-        self.ffmpeg_status_label.pack(anchor="w", padx=10, pady=5)
-        
-        self.install_ffmpeg_btn = ctk.CTkButton(
-            ff_frame,
-            text="📥 Auto-Install FFmpeg",
-            command=self.install_ffmpeg,
-            fg_color=self.colors['success'],
-            width=200
-        )
-        self.install_ffmpeg_btn.pack(anchor="w", padx=10, pady=10)
-        
         # History management
         history_frame = ctk.CTkFrame(tab, fg_color=self.colors['surface'])
-        history_frame.grid(row=3, column=0, sticky="ew", pady=5, padx=5)
+        history_frame.grid(row=2, column=0, sticky="ew", pady=5, padx=5)
         
         ctk.CTkLabel(
             history_frame,
@@ -707,13 +594,30 @@ class YouTubeDownloaderPro(ctk.CTk):
             height=35
         ).pack(side="left", padx=5)
         
+        # FFmpeg section
+        ff_frame = ctk.CTkFrame(tab, fg_color=self.colors['surface'])
+        ff_frame.grid(row=3, column=0, sticky="ew", pady=5, padx=5)
+        
+        ctk.CTkLabel(
+            ff_frame,
+            text="🎵 FFmpeg",
+            font=ctk.CTkFont(size=16, weight="bold")
+        ).pack(anchor="w", padx=10, pady=(10, 5))
+        
+        self.ffmpeg_status_label = ctk.CTkLabel(
+            ff_frame,
+            text="Checking...",
+            font=ctk.CTkFont(size=12)
+        )
+        self.ffmpeg_status_label.pack(anchor="w", padx=10, pady=5)
+        
         # About
         about_frame = ctk.CTkFrame(tab, fg_color=self.colors['surface'])
         about_frame.grid(row=4, column=0, sticky="ew", pady=5, padx=5)
         
         ctk.CTkLabel(
             about_frame,
-            text=f"{APP_NAME} v{APP_VERSION}\nSupports up to 4K quality\nAuto FFmpeg, Clear History, Theme Switcher",
+            text=f"{APP_NAME} v{APP_VERSION}\nEXE Ready - No dependencies needed!\nSupports up to 4K quality",
             font=ctk.CTkFont(size=12),
             text_color='gray'
         ).pack(pady=10)
@@ -732,15 +636,15 @@ class YouTubeDownloaderPro(ctk.CTk):
         )
         self.status_label.grid(row=0, column=0, padx=10, sticky="w")
     
-    # ========== SMART DOWNLOAD BUTTON ==========
+    # ========== CORE FUNCTIONS ==========
     
     def on_url_change(self, event):
-        """Handle URL input changes to enable/disable download button"""
+        """Handle URL input changes"""
         url = self.url_entry.get().strip()
         self.update_download_button_state(url)
     
     def update_download_button_state(self, url):
-        """Update download button state based on URL"""
+        """Update download button state"""
         if url and ('youtube.com' in url or 'youtu.be' in url or url.startswith('http')):
             self.download_btn.configure(
                 state="normal",
@@ -756,20 +660,16 @@ class YouTubeDownloaderPro(ctk.CTk):
                 text="🚫 ENTER URL FIRST"
             )
     
-    # ========== FORMAT HANDLING ==========
-    
     def set_format_with_button(self, format_type, color):
         """Set format and update button colors"""
         self.format_var.set(format_type)
         
-        # Update button colors
         for fmt, btn in self.format_buttons.items():
             if fmt == format_type:
                 btn.configure(fg_color=color)
             else:
                 btn.configure(fg_color=self.colors['surface_light'])
         
-        # Show/hide audio options
         if format_type == 'mp3':
             self.audio_frame.pack(side="left", padx=10)
         else:
@@ -783,8 +683,6 @@ class YouTubeDownloaderPro(ctk.CTk):
         else:
             self.audio_frame.pack_forget()
     
-    # ========== QUALITY HANDLING ==========
-    
     def on_quality_change(self, choice):
         """Handle quality change"""
         self.update_quality_indicator()
@@ -792,20 +690,15 @@ class YouTubeDownloaderPro(ctk.CTk):
     def update_quality_indicator(self):
         """Update quality indicator dots"""
         current = self.quality_var.get()
-        
         if current in self.quality_options:
             index = self.quality_options.index(current) + 1
             dots = "●" * index
             self.quality_indicator.configure(text=dots, text_color=self.colors['success'])
     
-    # ========== THEME MANAGEMENT ==========
-    
     def change_theme(self, theme):
         """Change application theme"""
         self.settings['theme'] = theme.lower()
         ctk.set_appearance_mode(theme)
-    
-    # ========== HISTORY MANAGEMENT ==========
     
     def clear_history(self):
         """Clear download history"""
@@ -813,20 +706,17 @@ class YouTubeDownloaderPro(ctk.CTk):
             self.show_notification("📋 History already empty")
             return
         
-        # Confirm with user
         if messagebox.askyesno(
             "Clear History",
-            f"Are you sure you want to clear all {len(self.download_history)} items from history?\n\n(This only clears the list, not the actual files)"
+            f"Clear all {len(self.download_history)} items from history?"
         ):
             self.download_history.clear()
             self.save_history()
             self.refresh_recent()
             self.show_notification("🗑️ History cleared")
     
-    # ========== FAST URL ANALYSIS ==========
-    
     def analyze_url_fast(self, url):
-        """Ultra-fast URL analysis"""
+        """Fast URL analysis"""
         if not url or self.is_analyzing:
             return
         
@@ -834,7 +724,7 @@ class YouTubeDownloaderPro(ctk.CTk):
         cache_key = hashlib.md5(url.encode()).hexdigest()
         if cache_key in self.video_info_cache:
             cache_time, info = self.video_info_cache[cache_key]
-            if time.time() - cache_time < 300:  # 5 minutes
+            if time.time() - cache_time < 300:
                 self.show_video_info_fast(info)
                 return
         
@@ -847,13 +737,12 @@ class YouTubeDownloaderPro(ctk.CTk):
         thread.start()
     
     def _analyze_fast_thread(self, url, cache_key):
-        """Background analysis - optimized"""
+        """Background analysis"""
         try:
-            # Minimal extraction for speed
             ydl_opts = {
                 'quiet': True,
                 'no_warnings': True,
-                'extract_flat': True,  # Fast mode!
+                'extract_flat': True,
                 'socket_timeout': 5,
             }
             
@@ -868,13 +757,11 @@ class YouTubeDownloaderPro(ctk.CTk):
                     'video_count': len(info['entries']) if 'entries' in info else 1,
                 }
                 
-                # Cache it
                 self.video_info_cache[cache_key] = (time.time(), fast_info)
-                
                 self.after(0, self.show_video_info_fast, fast_info)
                 
         except Exception as e:
-            self.after(0, lambda: self.status_label.configure(text=f"❌ Analysis failed"))
+            self.after(0, lambda: self.status_label.configure(text="❌ Analysis failed"))
         finally:
             self.is_analyzing = False
     
@@ -892,23 +779,11 @@ class YouTubeDownloaderPro(ctk.CTk):
         self.status_label.configure(text=status)
         self.current_video_info = info
     
-    # ========== FAST DOWNLOAD ==========
-    
     def start_download_fast(self):
         """Start download"""
         url = self.url_entry.get().strip()
         if not url:
             self.show_notification("⚠️ Enter URL first")
-            return
-        
-        # Check FFmpeg for MP3
-        if self.format_var.get() == 'mp3' and not self.ffmpeg_available:
-            if not messagebox.askyesno(
-                "FFmpeg Required",
-                "MP3 conversion requires FFmpeg.\n\nInstall FFmpeg now?"
-            ):
-                return
-            self.install_ffmpeg()
             return
         
         self.download_btn.configure(state="disabled", text="⏳ DOWNLOADING...", fg_color=self.colors['primary_disabled'])
@@ -920,11 +795,10 @@ class YouTubeDownloaderPro(ctk.CTk):
         thread.start()
     
     def _download_fast_thread(self, url):
-        """Fast download thread with 4K support"""
+        """Fast download thread"""
         try:
             format_type = self.format_var.get()
             
-            # Basic options
             ydl_opts = {
                 'outtmpl': os.path.join(self.download_path, '%(title)s.%(ext)s'),
                 'progress_hooks': [self.progress_hook_fast],
@@ -933,7 +807,6 @@ class YouTubeDownloaderPro(ctk.CTk):
                 'noplaylist': True,
             }
             
-            # Format-specific options
             if format_type == 'mp3':
                 quality = self.audio_quality_var.get().split()[0]
                 ydl_opts.update({
@@ -945,7 +818,6 @@ class YouTubeDownloaderPro(ctk.CTk):
                     }],
                 })
             else:
-                # Video download - UPDATED with 1440p and 4K support
                 quality_map = {
                     '144p': 'worst[height<=144]',
                     '240p': 'best[height<=240]',
@@ -960,7 +832,6 @@ class YouTubeDownloaderPro(ctk.CTk):
                 if format_type != 'mp4':
                     ydl_opts['merge_output_format'] = format_type
             
-            # Speed limit
             if self.settings['speed_limit'] != 'unlimited':
                 ydl_opts['ratelimit'] = self.speed_limits[self.settings['speed_limit']]
             
@@ -971,17 +842,12 @@ class YouTubeDownloaderPro(ctk.CTk):
             self.after(0, self.download_complete_fast)
             
         except Exception as e:
-            error_msg = str(e)
-            if "ffmpeg" in error_msg.lower() or "postprocessing" in error_msg.lower():
-                self.after(0, lambda: self.show_ffmpeg_error())
-            else:
-                self.after(0, lambda: self.show_notification(f"❌ Error: {error_msg[:50]}"))
+            self.after(0, lambda: self.show_notification(f"❌ Error: {str(e)[:50]}"))
             self.after(0, self.reset_download_button)
     
     def progress_hook_fast(self, d):
         """Progress hook"""
         if d['status'] == 'downloading':
-            # Calculate progress
             if 'total_bytes' in d:
                 percent = d['downloaded_bytes'] / d['total_bytes']
                 total_mb = d['total_bytes'] / 1024 / 1024
@@ -993,11 +859,8 @@ class YouTubeDownloaderPro(ctk.CTk):
             else:
                 return
             
-            # Speed
             speed = d.get('speed', 0)
             speed_mb = speed / 1024 / 1024 if speed else 0
-            
-            # ETA
             eta = d.get('eta', 0)
             eta_str = f"{eta//60}:{eta%60:02d}" if eta else "--:--"
             
@@ -1022,7 +885,7 @@ class YouTubeDownloaderPro(ctk.CTk):
         self.refresh_recent()
     
     def reset_download_button(self):
-        """Reset download button to enabled state"""
+        """Reset download button"""
         url = self.url_entry.get().strip()
         if url:
             self.download_btn.configure(
@@ -1038,8 +901,6 @@ class YouTubeDownloaderPro(ctk.CTk):
                 hover=False,
                 text="🚫 ENTER URL FIRST"
             )
-    
-    # ========== SEARCH ==========
     
     def search_fast(self):
         """Fast search"""
@@ -1059,7 +920,6 @@ class YouTubeDownloaderPro(ctk.CTk):
             ydl_opts = {
                 'quiet': True,
                 'extract_flat': True,
-                'force_generic_extractor': False,
             }
             
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -1083,7 +943,6 @@ class YouTubeDownloaderPro(ctk.CTk):
     
     def display_results_fast(self, results):
         """Display search results"""
-        # Clear previous
         for widget in self.search_results_frame.winfo_children():
             widget.destroy()
         
@@ -1095,32 +954,15 @@ class YouTubeDownloaderPro(ctk.CTk):
             ).pack(pady=50)
             return
         
-        # Header with count
-        header_frame = ctk.CTkFrame(self.search_results_frame, fg_color="transparent")
-        header_frame.pack(fill="x", pady=5)
-        
         ctk.CTkLabel(
-            header_frame,
+            self.search_results_frame,
             text=f"📊 Found {len(results)} results",
             font=ctk.CTkFont(size=12, weight="bold"),
             text_color=self.colors['accent']
-        ).pack(side="left")
+        ).pack(anchor="w", pady=5)
         
-        # Add a small note
-        ctk.CTkLabel(
-            header_frame,
-            text="Click Download to start",
-            font=ctk.CTkFont(size=10),
-            text_color='gray'
-        ).pack(side="right")
-        
-        # Display each result
         for r in results:
-            try:
-                self.create_result_item(r)
-            except Exception as e:
-                print(f"Error displaying result: {e}")
-                continue
+            self.create_result_item(r)
         
         self.status_label.configure(text=f"✅ Found {len(results)} results")
     
@@ -1129,7 +971,6 @@ class YouTubeDownloaderPro(ctk.CTk):
         frame = ctk.CTkFrame(self.search_results_frame, fg_color=self.colors['surface_light'])
         frame.pack(fill="x", pady=1)
         
-        # Title
         ctk.CTkLabel(
             frame,
             text=result['title'],
@@ -1137,11 +978,9 @@ class YouTubeDownloaderPro(ctk.CTk):
             anchor="w"
         ).pack(anchor="w", padx=8, pady=(5, 0))
         
-        # Channel and duration
         duration = result.get('duration', 0)
-        if duration and isinstance(duration, (int, float)):
-            duration_int = int(duration)
-            dur_str = f"{duration_int//60}:{duration_int%60:02d}"
+        if duration:
+            dur_str = f"{int(duration)//60}:{int(duration)%60:02d}"
         else:
             dur_str = "?:??"
         
@@ -1152,7 +991,6 @@ class YouTubeDownloaderPro(ctk.CTk):
             text_color='gray'
         ).pack(anchor="w", padx=8, pady=(0, 5))
         
-        # Buttons
         btn_frame = ctk.CTkFrame(frame, fg_color="transparent")
         btn_frame.pack(anchor="e", pady=5, padx=5)
         
@@ -1172,115 +1010,33 @@ class YouTubeDownloaderPro(ctk.CTk):
             command=lambda u=result['url']: self.load_url(u)
         ).pack(side="left", padx=2)
     
-    # ========== FFMPEG MANAGEMENT ==========
-    
     def check_ffmpeg(self):
         """Check FFmpeg status"""
-        available, message = FFmpegManager.check_ffmpeg()
-        self.ffmpeg_available = available
-        
-        # Update UI
-        if available:
+        try:
+            result = subprocess.run(['ffmpeg', '-version'], 
+                                   capture_output=True, text=True, timeout=2)
+            if result.returncode == 0:
+                self.ffmpeg_available = True
+                self.ffmpeg_badge.configure(
+                    text="🎵 FFmpeg: ✓ Ready",
+                    fg_color=self.colors['success']
+                )
+                self.ffmpeg_status_label.configure(
+                    text="✅ FFmpeg found",
+                    text_color=self.colors['success']
+                )
+            else:
+                raise Exception()
+        except:
+            self.ffmpeg_available = False
             self.ffmpeg_badge.configure(
-                text="🎵 FFmpeg: ✓ Ready",
-                fg_color=self.colors['success']
-            )
-            self.ffmpeg_status_label.configure(
-                text=message,
-                text_color=self.colors['success']
-            )
-            self.install_ffmpeg_btn.configure(
-                text="✅ FFmpeg Installed",
-                state="disabled"
-            )
-        else:
-            self.ffmpeg_badge.configure(
-                text="🎵 FFmpeg: ✗ Required",
+                text="🎵 FFmpeg: ✗ Not found",
                 fg_color=self.colors['warning']
             )
             self.ffmpeg_status_label.configure(
-                text="❌ FFmpeg not found - MP3 conversion unavailable",
-                text_color=self.colors['error']
+                text="❌ FFmpeg not found - MP3 limited",
+                text_color=self.colors['warning']
             )
-    
-    def install_ffmpeg(self):
-        """Install FFmpeg"""
-        self.install_ffmpeg_btn.configure(state="disabled", text="⏳ Installing...")
-        
-        def update_status(msg):
-            self.ffmpeg_status_label.configure(text=msg)
-            self.status_label.configure(text=msg)
-        
-        thread = threading.Thread(target=self._install_ffmpeg_thread, args=(update_status,))
-        thread.daemon = True
-        thread.start()
-    
-    def _install_ffmpeg_thread(self, status_callback):
-        """Install FFmpeg in background"""
-        success, result = FFmpegManager.auto_install(status_callback)
-        
-        if success:
-            self.after(0, lambda: self.ffmpeg_status_label.configure(
-                text=f"✅ FFmpeg installed at: {result}",
-                text_color=self.colors['success']
-            ))
-            self.after(0, lambda: self.ffmpeg_badge.configure(
-                text="🎵 FFmpeg: ✓ Ready",
-                fg_color=self.colors['success']
-            ))
-            self.after(0, lambda: self.install_ffmpeg_btn.configure(
-                text="✅ FFmpeg Installed"
-            ))
-            self.ffmpeg_available = True
-            self.after(0, lambda: self.show_notification("✅ FFmpeg installed! Restarting..."))
-            self.after(2000, self.restart_app)
-        else:
-            self.after(0, lambda: self.ffmpeg_status_label.configure(
-                text=f"❌ Installation failed: {result}",
-                text_color=self.colors['error']
-            ))
-            self.after(0, lambda: self.install_ffmpeg_btn.configure(
-                state="normal",
-                text="📥 Auto-Install FFmpeg"
-            ))
-    
-    def show_ffmpeg_error(self):
-        """Show FFmpeg error dialog"""
-        dialog = ctk.CTkToplevel(self)
-        dialog.title("FFmpeg Required")
-        dialog.geometry("450x300")
-        dialog.transient(self)
-        dialog.grab_set()
-        
-        ctk.CTkLabel(
-            dialog,
-            text="🎵 FFmpeg Not Found!",
-            font=ctk.CTkFont(size=20, weight="bold"),
-            text_color=self.colors['warning']
-        ).pack(pady=20)
-        
-        ctk.CTkLabel(
-            dialog,
-            text="MP3 conversion requires FFmpeg.\n\nClick below to auto-install:",
-            font=ctk.CTkFont(size=12)
-        ).pack(pady=10)
-        
-        ctk.CTkButton(
-            dialog,
-            text="📥 Auto-Install FFmpeg",
-            command=lambda: [dialog.destroy(), self.install_ffmpeg()],
-            height=40,
-            fg_color=self.colors['success']
-        ).pack(pady=10)
-        
-        ctk.CTkButton(
-            dialog,
-            text="Manual Download",
-            command=lambda: self.open_url("https://www.gyan.dev/ffmpeg/builds/"),
-            fg_color=self.colors['accent']
-        ).pack(pady=5)
-    
-    # ========== UTILITY FUNCTIONS ==========
     
     def paste_url(self):
         """Paste URL from clipboard"""
@@ -1332,16 +1088,6 @@ class YouTubeDownloaderPro(ctk.CTk):
         else:
             subprocess.run(['xdg-open', self.download_path])
     
-    def open_url(self, url):
-        """Open URL in browser"""
-        import webbrowser
-        webbrowser.open(url)
-    
-    def restart_app(self):
-        """Restart the application"""
-        python = sys.executable
-        os.execl(python, python, *sys.argv)
-    
     def add_to_history(self, info):
         """Add to download history"""
         item = {
@@ -1361,13 +1107,12 @@ class YouTubeDownloaderPro(ctk.CTk):
             widget.destroy()
         
         if not self.download_history:
-            empty_label = ctk.CTkLabel(
+            ctk.CTkLabel(
                 self.recent_list,
-                text="✨ No downloads yet\nPaste a URL and click Download!",
+                text="✨ No downloads yet",
                 font=ctk.CTkFont(size=12),
                 text_color='gray'
-            )
-            empty_label.pack(pady=20)
+            ).pack(pady=20)
             return
         
         for item in self.download_history[:15]:
@@ -1378,10 +1123,8 @@ class YouTubeDownloaderPro(ctk.CTk):
         frame = ctk.CTkFrame(self.recent_list, fg_color=self.colors['surface_light'])
         frame.pack(fill="x", pady=1)
         
-        # Icon based on format
         icon = "🎬" if item['format'] == 'mp4' else "🎵" if item['format'] == 'mp3' else "📦"
         
-        # Info
         info_frame = ctk.CTkFrame(frame, fg_color="transparent")
         info_frame.pack(side="left", fill="x", expand=True, padx=8, pady=5)
         
@@ -1399,7 +1142,6 @@ class YouTubeDownloaderPro(ctk.CTk):
             text_color='gray'
         ).pack(anchor="w")
         
-        # Open folder button
         ctk.CTkButton(
             frame,
             text="📁",
@@ -1416,7 +1158,7 @@ class YouTubeDownloaderPro(ctk.CTk):
     
     def lighten_color(self, color):
         """Lighten color for hover"""
-        return color  # Simplified
+        return color
     
     def save_history(self):
         """Save download history"""
@@ -1441,14 +1183,27 @@ class YouTubeDownloaderPro(ctk.CTk):
 if __name__ == "__main__":
     print("""
     ╔══════════════════════════════════════╗
-    ║   YouTube Downloader Pro - FINAL     ║
-    ║   Supports up to 4K Quality!         ║
+    ║   YouTube Downloader Pro - EXE READY ║
+    ║   No dependencies needed!            ║
     ╚══════════════════════════════════════╝
     """)
     
     try:
+        # Set DPI awareness for better display
+        try:
+            import ctypes
+            ctypes.windll.shcore.SetProcessDpiAwareness(1)
+        except:
+            pass
+        
         app = YouTubeDownloaderPro()
         app.mainloop()
     except Exception as e:
         print(f"❌ Error: {e}")
-        input("Press Enter to exit...")
+        # Try to show error in message box
+        try:
+            import tkinter.messagebox as msgbox
+            msgbox.showerror("Error", f"Failed to start: {str(e)}")
+        except:
+            pass
+        input("\nPress Enter to exit...")

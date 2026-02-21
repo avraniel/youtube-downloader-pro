@@ -27,7 +27,7 @@ A complete, feature-rich YouTube downloader with modern GUI, auto FFmpeg install
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/youtube-downloader-pro.git
+git clone https://github.com/avraniel/youtube-downloader-pro.git
 cd youtube-downloader-pro
 
 # Run the app (dependencies install automatically)
@@ -60,7 +60,7 @@ A complete, feature-rich YouTube downloader with modern GUI, auto FFmpeg install
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/youtube-downloader-pro.git
+git clone https://github.com/avraniel/youtube-downloader-pro.git
 cd youtube-downloader-pro
 
 # Run the app (dependencies install automatically)

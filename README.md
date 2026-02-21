@@ -61,6 +61,9 @@ A complete, feature-rich YouTube downloader with modern GUI, auto FFmpeg install
 ```bash
 # Clone the repository
 git clone https://github.com/avraniel/youtube-downloader-pro.git
+
+
+🙏 Credits Built with CustomTkinter  Powered by yt-dlp  FFmpeg from gyan.dev
 cd youtube-downloader-pro
 
 # Run the app (dependencies install automatically)

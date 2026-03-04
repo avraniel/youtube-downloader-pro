@@ -1,0 +1,21 @@
+youtube-downloader-pro/
+│
+├── app/
+│   ├── __init__.py
+│   ├── main.py
+│   ├── ui.py
+│   ├── downloader.py
+│   ├── config.py
+│   └── utils.py
+│
+├── assets/
+│   ├── icon.ico
+│   └── theme.json
+│
+├── screenshots/
+│
+├── requirements.txt
+├── README.md
+├── LICENSE
+├── CONTRIBUTING.md
+└── .gitignore

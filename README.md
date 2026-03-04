@@ -1,52 +1,41 @@
 # 🎬 YouTube Downloader Pro
 
-A modern, feature-rich YouTube downloader with a clean GUI interface.  
-Download videos up to 4K resolution or extract high-quality MP3 audio with ease.
+![Python](https://img.shields.io/badge/Python-3.8+-blue)
+![License](https://img.shields.io/badge/License-MIT-green)
+![Version](https://img.shields.io/badge/Version-1.0.0-orange)
+![Build](https://img.shields.io/badge/Build-Passing-brightgreen)
+
+A polished Python desktop app for downloading videos from YouTube up to 4K and extracting high-quality MP3 audio.  
+Standalone executable builds are supported — no Python install needed.
 
 ---
-
-
-![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
-![License](https://img.shields.io/badge/License-MIT-green.svg)
-![Build](https://img.shields.io/badge/Build-Passing-brightgreen)
-![Version](https://img.shields.io/badge/Version-1.0.0-orange)
-
 
 ## ✨ Features
 
-- 🎥 Download videos from 144p up to 4K
-- 🎵 Extract and convert to MP3 audio
-- ⚡ Fast video analysis
-- 📊 Download progress tracking
-- 🗂 Automatic file organization
-- 🌓 Modern dark/light UI
-- 🔧 Automatic FFmpeg handling
-- 📦 Standalone EXE support (no Python installation required)
+- 🖥️ Video downloads: 144p → 4K  
+- 🎧 MP3 audio extraction  
+- 📊 Progress tracking  
+- 📁 Automatic file organization  
+- 🚀 Modern GUI (CustomTkinter)  
+- ⚙️ Standalone executable option
 
 ---
 
-## 🖼 Preview
+## 🖼️ Preview
 
-> Add screenshots inside a `/screenshots` folder and link them like this:
+> Add real screenshots inside `screenshots/` and update paths below:
 
-![Main UI](screenshots/main-ui.png)
-![Download Progress](screenshots/progress.png)
-
----
-
-## 🛠 Built With
-
-- Python 3.8+
-- yt-dlp
-- FFmpeg
-- CustomTkinter
+![Main UI](screenshots/ui-main.png)
+![Download Progress](screenshots/ui-progress.png)
 
 ---
 
-## 🚀 Installation (Developer Mode)
-
-### 1️⃣ Clone the Repository
+## 🛠️ Install (Dev Mode)
 
 ```bash
 git clone https://github.com/avraniel/youtube-downloader-pro.git
 cd youtube-downloader-pro
+python -m venv venv
+venv\Scripts\activate  # Windows
+pip install -r requirements.txt
+python -m app.main

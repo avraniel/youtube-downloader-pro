@@ -5,6 +5,13 @@ Download videos up to 4K resolution or extract high-quality MP3 audio with ease.
 
 ---
 
+
+![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
+![License](https://img.shields.io/badge/License-MIT-green.svg)
+![Build](https://img.shields.io/badge/Build-Passing-brightgreen)
+![Version](https://img.shields.io/badge/Version-1.0.0-orange)
+
+
 ## ✨ Features
 
 - 🎥 Download videos from 144p up to 4K

@@ -1,35 +1,7 @@
 
----
+MIT License
 
-## ✅ 5️⃣ GitHub Badges (Already Included Above)
+Copyright (c) 2026 Raniel Laguna
 
-Keep badges for **Python**, **Version**, **Build**, and **License**.
-
----
-
-## 🔥 6️⃣ Product-Style Landing Description
-
-Use this in your repository’s **About** section on GitHub:
-
-> A polished Python desktop application for downloading YouTube videos up to 4K and extracting high-quality MP3 audio, with a modern GUI and standalone builds.
-
----
-
-## 👍 What’s Next (Optional Enhancements)
-
-- 📌 Multi-download queue  
-- 📦 Publish as installer (EXE/DMG)  
-- 🌍 Localization support  
-- 📊 Download history & resume  
-- ☁ Cloud sync integration  
-
----
-
-If you want, I can also generate:
-
-✅ CONTRIBUTING.md  
-✅ .gitignore file  
-✅ GitHub Action workflows (CI/CD)  
-
-Just tell me!
-::contentReference[oaicite:3]{index=3}
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software ...
